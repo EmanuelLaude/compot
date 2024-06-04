@@ -2,7 +2,7 @@
 Python library for nonsmooth composite optimization
 
 ****
-Includes LBFGS, Newton and universal adaptive proximal gradient methods
+The frontend includes an implementations of a simple calculus for derivatives and proximal operators for a convinient description of the optimization problem. The backend includes implementations of (among other methods) LBFGS, Semi-smooth Newton and universal adaptive proximal gradient methods
 
 ****
 If you intend to use this package for scientific purposes please cite
