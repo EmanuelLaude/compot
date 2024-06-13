@@ -48,6 +48,8 @@ objective_values = []
 optimizer = lip.LBFGSPanoc(params, problem, callback)
 optimizer.run()
 
+print(problem.eval_objective(optimizer.x))
+
 # plot suboptimality
 plt.semilogy(np.array(objective_values) - objective_values[-1], label="$F(x) - F^*$")
 plt.legend()

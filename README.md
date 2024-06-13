@@ -51,10 +51,14 @@ problems ![equation](https://latex.codecogs.com/png.image?\dpi{110}\inline\min_x
       def callback(x, status):
           print("k", status.nit, "objective", problem.eval_objective(x), "residual", status.res)
         
-        
-      objective_values = []
+
       optimizer = lip.LBFGSPanoc(params, problem, callback)
       optimizer.run()
+
+* Access solution
+
+      minizer = optimizer.x
+      print(problem.eval_objective(minimizer))
 
 ****
 If you intend to use this package for scientific purposes please cite
