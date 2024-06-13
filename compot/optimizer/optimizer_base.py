@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 import scipy
+import compot.calculus.function as fun
 
 
 class OptimizationProblem(ABC):
@@ -16,6 +17,10 @@ class OptimizationProblem(ABC):
 class CompositeOptimizationProblem(OptimizationProblem):
     def __init__(self, x_init, diffable, proxable):
         super().__init__(x_init)
+
+        assert(isinstance(diffable, fun.Diffable))
+        assert(isinstance(proxable, fun.Proxable))
+
         self.diffable = diffable
         self.proxable = proxable
 
@@ -25,7 +30,11 @@ class CompositeOptimizationProblem(OptimizationProblem):
 class DiffableOptimizationProblem(OptimizationProblem):
     def __init__(self, x_init, diffable):
         super().__init__(x_init)
+
+        assert (isinstance(diffable, fun.Diffable))
+
         self.diffable = diffable
+
 
     def eval_objective(self, x):
         return self.diffable.eval(x)

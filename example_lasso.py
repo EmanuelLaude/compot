@@ -13,23 +13,27 @@ A = 2 * np.random.rand(m, n) - 1
 b = 2 * np.random.rand(m)
 lamb = 0.015
 
-x0 = np.random.rand(n)
-
-# setup problem define splitting
+# setup individual cost functions in composite minimization problem
 #min_x f(x) + g(x)
 f = fun.AffineCompositeLoss(
             fun.NormPower(2, 2),
             fun.LinearTransform(A),
             b
         )
+assert isinstance(f, fun.Diffable)
+
 g = fun.FunctionTransform(
     fun.OneNorm(),
     rho=lamb
 )
+assert isinstance(g, fun.Proxable)
+
+# define composite optimization problem with initial point
+x0 = np.random.rand(n)
 problem = opt_base.CompositeOptimizationProblem(x0, f, g)
 
 
-#setup optimizer
+#setup optimizer Panoc with LBFGS oracle
 params = opt_lip.Parameters()
 params.maxit = 12000
 params.tol = 1e-13
