@@ -57,7 +57,7 @@ problems ![equation](https://latex.codecogs.com/png.image?\dpi{110}\inline\min_x
 
 * Access solution
 
-      minizer = optimizer.x
+      minimizer = optimizer.x
       print(problem.eval_objective(minimizer))
 
 ****
