@@ -1,5 +1,5 @@
 import numpy as np
-import convex_optim.optimizer_base as base
+import compot.optimizer.optimizer_base as base
 
 
 class Parameters(base.Parameters):
@@ -209,8 +209,6 @@ class AutoConditionedFastGradientMethod(base.IterativeOptimizer):
                     3 * self.L):
                 break
             self.gamma_plus = self.gamma_plus * 0.5
-
-
 
 
     def pre_step(self, k):

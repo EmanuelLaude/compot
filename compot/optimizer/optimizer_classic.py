@@ -1,6 +1,6 @@
 from abc import abstractmethod
 import numpy as np
-import convex_optim.optimizer_base as base
+import compot.optimizer.optimizer_base as base
 
 class Parameters(base.Parameters):
     def __init__(self, maxit = 500, tol = 1e-5, epsilon = 1e-12,

@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import convex_optim.function as fun
-import convex_optim.optimizer_base as opt_base
-import convex_optim.optimizer_lipschitz as opt_lip
+import compot.calculus.function as fun
+import compot.optimizer.optimizer_base as opt_base
+import compot.optimizer.optimizer_lipschitz as opt_lip
 
 ##
 # minimize 1/2|Ax - b|^2 + lamb |x|_1

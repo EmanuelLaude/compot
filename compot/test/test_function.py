@@ -1,5 +1,5 @@
 import numpy as np
-import convex_optim.function as fun
+import compot.calculus.function as fun
 
 
 def test_prox_logistic():
