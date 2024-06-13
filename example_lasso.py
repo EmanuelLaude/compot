@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import compot.calculus.function as fun
-import compot.optimizer.optimizer_base as opt_base
-import compot.optimizer.optimizer_lipschitz as opt_lip
+import compot.optimizer.base as base
+import compot.optimizer.lipschitz as lip
 
 ##
 # minimize 1/2|Ax - b|^2 + lamb |x|_1
@@ -20,27 +20,23 @@ f = fun.AffineCompositeLoss(
             fun.LinearTransform(A),
             b
         )
-assert isinstance(f, fun.Diffable)
+
 
 g = fun.FunctionTransform(
     fun.OneNorm(),
     rho=lamb
 )
-assert isinstance(g, fun.Proxable)
+
 
 # define composite optimization problem with initial point
 x0 = np.random.rand(n)
-problem = opt_base.CompositeOptimizationProblem(x0, f, g)
+problem = base.CompositeOptimizationProblem(x0, f, g)
 
 
 #setup optimizer Panoc with LBFGS oracle
-params = opt_lip.Parameters()
-params.maxit = 12000
+params = lip.Parameters()
+params.maxit = 5000
 params.tol = 1e-13
-params.mem = 10
-params.backtracking = False
-params.epsilon = 1e-12
-params.gamma_init = -1
 
 #collect objective values for plotting within callback
 def callback(x, status):
@@ -49,16 +45,8 @@ def callback(x, status):
 
 
 objective_values = []
-optimizer = opt_lip.LBFGSPanoc(params, problem, callback)
+optimizer = lip.LBFGSPanoc(params, problem, callback)
 optimizer.run()
-
-params = opt_lip.Parameters()
-params.maxit = 20000
-params.tol = 1e-13
-params.mem = 10
-params.backtracking = True
-params.epsilon = 1e-15
-params.gamma_init = 100
 
 # plot suboptimality
 plt.semilogy(np.array(objective_values) - objective_values[-1], label="$F(x) - F^*$")

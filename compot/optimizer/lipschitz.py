@@ -1,6 +1,6 @@
 from abc import abstractmethod
 import numpy as np
-import compot.optimizer.optimizer_base as base
+import compot.optimizer.base as base
 
 
 class Parameters(base.Parameters):
