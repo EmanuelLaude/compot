@@ -35,7 +35,7 @@ problem = base.CompositeOptimizationProblem(x0, f, g)
 
 #setup optimizer Panoc with LBFGS oracle
 params = lip.Parameters()
-params.maxit = 5000
+params.maxit = 50000
 params.tol = 1e-13
 
 #collect objective values for plotting within callback

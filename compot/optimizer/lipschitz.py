@@ -88,7 +88,7 @@ class Panoc(base.IterativeOptimizer):
 
             x = self.x - (1 - tau) * self.gamma * self.R + tau * d
 
-            if tau < 1e-15:
+            if tau < 1e-13:
                 x = self.x - self.gamma * self.R
                 break
 

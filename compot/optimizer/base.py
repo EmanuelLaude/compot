@@ -72,7 +72,8 @@ class ScipyBFGSWrapper(Optimizer):
     def run(self):
         options = { "maxiter": self.params.maxit, "gtol": self.params.tol }
 
-        callback = lambda x: self.callback(0, 0, 0, x, np.linalg.norm(self.problem.diffable.eval_gradient(x))) if not self.callback is None else None
+        self.status = Status()
+        callback = lambda x: self.callback(x, self.status) if not self.callback is None else None
 
         result = scipy.optimize.minimize(lambda x: self.problem.diffable.eval(x),
                                       self.problem.x_init,
@@ -82,10 +83,10 @@ class ScipyBFGSWrapper(Optimizer):
                                       callback=callback)
         self.x[:] = result.x[:]
         self.res = np.linalg.norm(self.problem.diffable.eval_gradient(self.x))
-        self.k = result.nit
-        self.success = result.success
+        self.status.nit = result.nit
+        self.status.success = result.success
 
-        return self.success
+        return self.status
 
 class IterativeOptimizer(Optimizer):
     def __init__(self, params, problem, callback = None):
@@ -118,7 +119,7 @@ class IterativeOptimizer(Optimizer):
         self.setup()
 
         k = 0
-        for k in range(self.params.maxit):
+        while True:
             self.update_status(k)
 
             if not self.callback is None and self.callback(self.x, self.status):
@@ -128,7 +129,12 @@ class IterativeOptimizer(Optimizer):
                 self.status.success = True
                 return self.status
 
+            if k == self.params.maxit:
+                return self.status
+
             self.step(k)
+
+            k += 1
 
 
         self.update_status(k)

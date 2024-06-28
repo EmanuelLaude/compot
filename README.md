@@ -1,6 +1,6 @@
 # compot - COMPosite Optimization Toolbox
 
-Python library for nonsmooth composite optimization
+Python library for nonsmooth convex composite optimization
 problems ![equation](https://latex.codecogs.com/png.image?\dpi{110}\inline\min_x&space;f(x)&plus;g(x))
 
 ****

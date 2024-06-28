@@ -28,7 +28,6 @@ class DescentMethodBaseClass(base.IterativeOptimizer):
     def setup(self):
         pass
 
-
     def pre_step(self, _):
         self.grad = self.problem.diffable.eval_gradient(self.x)
         return np.linalg.norm(self.grad)

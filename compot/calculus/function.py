@@ -326,13 +326,16 @@ class IndicatorBox(SemidiffableProxable):
         v[np.logical_and(self._l < x, x < self._u)] = 1.
         return np.diag(v)
 
-# code taken from https://gist.github.com/mblondel/6f3b7aaad90606b98f71
+# code adapted from https://gist.github.com/mblondel/6f3b7aaad90606b98f71
 def projection_simplex_sort(v, z=1):
     n_features = v.shape[0]
     u = np.sort(v)[::-1]
     cssv = np.cumsum(u) - z
     ind = np.arange(n_features) + 1
-    cond = u - cssv / ind > 0
+    cond = u - cssv / ind > -1e-18
+    if len(ind[cond]) == 0:
+        print(u - cssv / ind)
+
     rho = ind[cond][-1]
     theta = cssv[cond][-1] / float(rho)
     w = np.maximum(v - theta, 0)
