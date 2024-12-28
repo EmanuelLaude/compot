@@ -303,7 +303,7 @@ class Zero(SecondDiffable, SemidiffableProxable):
         return 0.
 
     def eval_Hessian(self, x):
-        return np.diag(0.)
+        return np.diag(np.zeros(x.shape[0]))
 
     def get_Lip_Hessian(self):
         return 0.
