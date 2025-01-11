@@ -28,6 +28,10 @@ class Diffable(Function):
     def get_Lip_gradient(self):
         return np.Inf
 
+class Dualizable(Function):
+    def get_conjugate(self):
+        pass
+
 class SecondDiffable(Diffable):
     @abstractmethod
     def eval_Hessian(self, x):
@@ -36,15 +40,45 @@ class SecondDiffable(Diffable):
     def get_Lip_Hessian(self):
         return np.Inf
 
-#\rho f(x / \sigma - b) + <c,x> + \gamma/2 * |x|^2
-class FunctionTransform(SecondDiffable, SemidiffableProxable):
-    def __init__(self, function, rho = 1., sigma = 1., gamma = 0., b = None, c = None):
+
+##
+# helpers
+##
+def eval_prox_moreau(x, step_size, proxable):
+    return x - step_size * proxable.get_conjugate().eval_prox(x / step_size, 1 / step_size)
+
+def eval_Jacobian_prox_moreau(x, step_size, proxable):
+    return np.identity(x.shape[0]) - proxable.get_conjugate().eval_Jacobian_prox(x / step_size, 1 / step_size)
+
+
+#f(x) = rho h(x / \sigma - b) + <c,x> + C
+#f^*(x^*) = sup_x <x, x*> - rho h(x / sigma - b) - <c, x> - C
+#         = rho (sup_x <x, x* / rho - c / rho> - h(x / sigma - b)) - C | z = x / sigma - b => x = (z + b) * sigma
+#         = rho (sup_z <(z + b) * sigma, (x* - c) / rho> - h(z)) - C
+#         = rho (sup_z <sigma * (x* - c) / rho, z> - h(z)) + <sigma * (x* - c) / rho, b>) - C
+#         = rho (h^*(sigma * (x* - c) / rho) + <sigma * (x* - c) / rho, b>) - C
+#         = rho h^*(x* / (rho / sigma) - sigma * c / rho)  + <sigma * (x* - c), b>) - C
+#         = rho h^*(x* / (rho / sigma) - sigma * c / rho)  + <x*, sigma * b> - (C + sigma * <c, b>)
+class FunctionTransform(SecondDiffable, SemidiffableProxable, Dualizable):
+    def __init__(self, function, rho = 1., sigma = 1., b = None, c = None, C = 0.):
         self._rho = rho
         self._sigma = sigma
-        self._gamma = gamma
         self._b = b
         self._c = c
+        self._C = C
         self._function = function
+
+    def get_conjugate(self):
+        assert isinstance(self._function, Dualizable)
+        rho_star = self._rho
+        sigma_star = self._rho / self._sigma
+
+        b_star = None if self._c is None else self._sigma * (self._c / self._rho)
+        c_star = None if self._b is None else self._sigma * self._b
+        C_star = -self._C - (0. if self._c is None or self._b is None else self._sigma * np.dot(self._c, self._b))
+
+        return FunctionTransform(self._function.get_conjugate(), rho_star, sigma_star, b_star, c_star, C_star)
+
 
     def eval(self, x):
         y = x / self._sigma if self._b is None else x / self._sigma - self._b
@@ -52,7 +86,7 @@ class FunctionTransform(SecondDiffable, SemidiffableProxable):
         return (
             self._rho * self._function.eval(y)
             + (0. if self._c is None else np.dot(x, self._c))
-            + (0. if self._gamma == 0. else self._gamma * 0.5 * np.dot(x, x))
+            + self._C
         )
 
     def eval_gradient(self, x):
@@ -62,13 +96,12 @@ class FunctionTransform(SecondDiffable, SemidiffableProxable):
 
         return (self._rho * self._function.eval_gradient(y) / self._sigma
                 + (0. if self._c is None else self._c)
-                + (0. if self._gamma == 0. else self._gamma * x)
         )
 
     def get_Lip_gradient(self):
         assert isinstance(self._function, Diffable)
 
-        return (self._rho / self._sigma ** 2) * self._function.get_Lip_gradient() + self._gamma
+        return (self._rho / self._sigma ** 2) * self._function.get_Lip_gradient()
 
 
     def eval_Hessian(self, x):
@@ -76,21 +109,18 @@ class FunctionTransform(SecondDiffable, SemidiffableProxable):
 
         y = x / self._sigma if self._b is None else x / self._sigma - self._b
 
-        return (self._rho * self._function.eval_Hessian(y) / (self._sigma ** 2)
-                + (0. if self._gamma == 0. else self._gamma * np.identity(x.shape[0]))
-        )
+        return self._rho * self._function.eval_Hessian(y) / (self._sigma ** 2)
 
     def eval_prox(self, x, step_size=1.0):
         assert isinstance(self._function, Proxable)
 
-        omega = 1. + step_size * self._gamma
-        delta = 1. / ((self._sigma ** 2) * omega)
+        delta = 1. / (self._sigma ** 2)
 
         #r = (self._rho / omega) * x - ((step_size * self._rho) / self._sigma) * (1. / omega) * self._c
         #z = r + ((step_size * self._rho * self._gamma - self._rho) * self._b) / omega
         q = delta * self._sigma * (
                      (x - step_size * (self._c if not self._c is None else 0.))
-                    - self._sigma * omega * (self._b if not self._b is None else 0.)
+                    - self._sigma * (self._b if not self._b is None else 0.)
         )
 
         return (self._function.eval_prox(q, step_size * self._rho * delta) + (self._b if not self._b is None else 0.)) * self._sigma
@@ -98,12 +128,11 @@ class FunctionTransform(SecondDiffable, SemidiffableProxable):
     def eval_Jacobian_prox(self, x, step_size=1.0):
         assert isinstance(self._function, SemidiffableProxable)
 
-        omega = 1. + step_size * self._gamma
-        delta = 1. / ((self._sigma ** 2) * omega)
+        delta = 1. / (self._sigma ** 2)
 
         q = delta * self._sigma * (
                      (x - step_size * (self._c if not self._c is None else 0.))
-                    - self._sigma * omega * (self._b if not self._b is None else 0.)
+                    - self._sigma * (self._b if not self._b is None else 0.)
         )
 
         return self._sigma * delta * self._sigma * self._function.eval_Jacobian_prox(q, step_size * self._rho * delta)
@@ -111,7 +140,7 @@ class FunctionTransform(SecondDiffable, SemidiffableProxable):
 ##
 # Implementations
 ##
-class NormPower(SecondDiffable, Proxable):
+class NormPower(SecondDiffable, Proxable, Dualizable):
     def __init__(self, power, norm = 2):
         assert norm > 1. and power > 1.
         assert norm == power or norm == 2
@@ -151,6 +180,11 @@ class NormPower(SecondDiffable, Proxable):
 
         return np.Inf
 
+    def get_conjugate(self):
+        power_conj = self._power / (self._power - 1)
+        norm_conj = 2. if self._norm == 2. else power_conj
+
+        return NormPower(power_conj, norm_conj)
 
 class PowerHingeLoss(Diffable):
     def __init__(self, power):
@@ -169,6 +203,8 @@ class PowerHingeLoss(Diffable):
             return 1.
 
         return np.Inf
+
+
 
 # Code adapted from https://github.com/foges/pogs/blob/master/src/include/prox_lib.h
 def prox_logistic(v, rho):
@@ -232,7 +268,11 @@ def prox_logistic(v, rho):
 
     return x
 
-class LogisticLoss(SecondDiffable, Proxable):
+#ln(exp(-t) + exp(x-t)) + t
+#ln(exp(-t) + exp(x)*exp(-t)) + ln(exp(t))
+#ln((exp(-t)+ exp(x)*exp(-t))*exp(t))
+#ln(1 + exp(t))
+class LogisticLoss(SecondDiffable, Proxable, Dualizable):
     def eval(self, x):
         theta = np.maximum(0., x)
         v = np.log(np.exp(-theta) + np.exp(x - theta)) + theta
@@ -256,7 +296,63 @@ class LogisticLoss(SecondDiffable, Proxable):
     def get_Lip_Hessian(self):
         return 1 / (6 * np.sqrt(3))
 
-class SumExp(SecondDiffable):
+    def get_conjugate(self):
+        return FermiDiracEntropy()
+
+class FermiDiracEntropy(SecondDiffable, Proxable, Dualizable):
+    def eval(self, x):
+        if not np.all(np.logical_and(x <= 1., x >= 0)):
+            return np.inf
+
+        return np.sum(x[np.logical_and(x < 1., x > 0)] * np.log(x[np.logical_and(x < 1., x > 0)])
+                                            + (1.-x[np.logical_and(x < 1., x > 0)]) * np.log(1.-x[np.logical_and(x < 1., x > 0)]))
+
+
+
+    def eval_gradient(self, x):
+        z = np.zeros(x.shape)
+        z[x < 0] = -np.inf
+        z[x > 1.] = np.inf
+        z[np.logical_and(x <= 1., x >= 0)] = np.log(x[np.logical_and(x <= 1., x >= 0)]) - np.log(1. - x[np.logical_and(x <= 1., x >= 0)])
+        return z
+
+    def eval_Hessian(self, x):
+        return np.diag(1 / (x - x * x))
+
+    def eval_prox(self, x, step_size=1.0):
+        return eval_prox_moreau(x, step_size, self)
+
+    def get_Lip_gradient(self):
+        return np.inf
+
+    def get_Lip_Hessian(self):
+        return np.inf
+
+    def get_conjugate(self):
+        return LogisticLoss()
+
+
+class Entropy(SecondDiffable, Dualizable):
+    def __init__(self):
+        super().__init__()
+
+    def eval(self, x):
+        return np.sum(x * np.log(x) - x)
+
+    def eval_gradient(self, x):
+        return np.log(x)
+
+    def eval_Hessian(self, x):
+        return np.diag(1. / x)
+
+    def get_conjugate(self):
+        return SumExp()
+
+
+class SumExp(SecondDiffable, Dualizable):
+    def __init__(self):
+        super().__init__()
+
     def eval(self, x):
         return np.sum(np.exp(x))
 
@@ -266,8 +362,14 @@ class SumExp(SecondDiffable):
     def eval_Hessian(self, x):
         return np.diag(np.exp(x))
 
+    def get_conjugate(self):
+        return Entropy()
 
-class LogSumExp(SecondDiffable):
+
+class LogSumExp(SecondDiffable, Dualizable):
+    def __init__(self):
+        super().__init__()
+
     def eval(self, x):
         theta = np.max(x)
         return (np.log(np.sum(np.exp(x - theta))) + theta)
@@ -285,10 +387,35 @@ class LogSumExp(SecondDiffable):
         Z = np.sum(z)
         return (Z * np.diag(z) - np.outer(z, z)) / (Z ** 2)
 
+    def get_conjugate(self):
+        return EntropyUnitSimplex()
 
-class Zero(SecondDiffable, SemidiffableProxable):
+class EntropyUnitSimplex(SecondDiffable, Dualizable):
     def eval(self, x):
-        return 0.
+        assert np.all(x > 0) and np.sum(x) > 1-1e-13 and np.sum(x) < 1+1e-13
+        return np.sum(x * np.log(x))
+
+    def eval_gradient(self, x):
+        assert np.all(x > 0) and np.sum(x) > 1 - 1e-13 and np.sum(x) < 1 + 1e-13
+        return np.log(x) + 1.
+
+    def eval_Hessian(self, x):
+        assert np.all(x > 0) and np.sum(x) > 1 - 1e-13 and np.sum(x) < 1 + 1e-13
+        return np.diag(1 / x)
+
+    def get_conjugate(self):
+        return LogSumExp()
+
+# f*(x*) = sup_x <x, x*> - C
+# f*(x*) = delta_{0}(x*) - C
+# f**(x) = sup_x* 0
+class Constant(SecondDiffable, SemidiffableProxable, Dualizable):
+    def __init__(self, C):
+        super().__init__()
+        self._C = C
+
+    def eval(self, x):
+        return self._C
 
     def eval_prox(self, x, step_size=1.0):
         return x
@@ -308,7 +435,30 @@ class Zero(SecondDiffable, SemidiffableProxable):
     def get_Lip_Hessian(self):
         return 0.
 
-class IndicatorBox(SemidiffableProxable):
+    def get_conjugate(self):
+        return IndicatorZero(-self._C)
+
+
+class IndicatorZero(SemidiffableProxable, Dualizable):
+    def __init__(self, C = 0):
+        super().__init__()
+        self._C = C
+
+    def eval(self, x):
+        if np.all(np.logical_and(x > -1e-13, x < 1e-13)):
+            return self._C
+        return np.inf
+
+    def eval_prox(self, x, step_size=1.0):
+        return np.zeros(x.shape)
+
+    def eval_Jacobian_prox(self, x, step_size=1.0):
+        return np.zeros(x.shape[0], x.shape[0])
+
+    def get_conjugate(self):
+        return Constant(-self._C)
+
+class IndicatorBox(SemidiffableProxable, Dualizable):
     def __init__(self, l = -1., u = 1.):
         self._l = l
         self._u = u
@@ -326,8 +476,31 @@ class IndicatorBox(SemidiffableProxable):
         v[np.logical_and(self._l < x, x < self._u)] = 1.
         return np.diag(v)
 
+    def get_conjugate(self):
+        return ConjugateIndicatorBox(self._l, self._u)
+
+class ConjugateIndicatorBox(SemidiffableProxable, Dualizable):
+    def __init__(self, l = -1., u = 1.):
+        self._l = l
+        self._u = u
+
+    def eval(self, x):
+        y = np.zeros(x.shape)
+        y[x < 0] = self._l
+        y[x > 0] = self._u
+        return np.sum(y)
+
+    def eval_prox(self, x, step_size=1.0):
+        return eval_prox_moreau(x, step_size, self)
+
+    def eval_Jacobian_prox(self, x, step_size=1.0):
+        return eval_Jacobian_prox_moreau(x, step_size, self)
+
+    def get_conjugate(self):
+        return IndicatorBox(self._l, self._u)
+
 # code adapted from https://gist.github.com/mblondel/6f3b7aaad90606b98f71
-def projection_simplex_sort(v, z=1):
+def projection_unit_simplex_sort(v, z=1):
     n_features = v.shape[0]
     u = np.sort(v)[::-1]
     cssv = np.cumsum(u) - z
@@ -341,27 +514,40 @@ def projection_simplex_sort(v, z=1):
     w = np.maximum(v - theta, 0)
     return w
 
-class IndicatorSimplex(SemidiffableProxable):
+class IndicatorUnitSimplex(SemidiffableProxable, Dualizable):
     def eval(self, x):
         if np.sum(x >= -1e10) == x.shape[0] and np.abs(np.sum(x) - 1) <= 1e-10:
             return 0
-        return np.Inf
+        return np.inf
 
     def eval_prox(self, x, step_size=1.0):
-        return projection_simplex_sort(x)
+        return projection_unit_simplex_sort(x)
 
     def eval_Jacobian_prox(self, x, step_size=1.0):
         y = self.eval_prox(x, step_size)
         S = y > 0
         return np.diag(S) - np.outer(S, S) / np.sum(S)#np.multiply(np.outer(S, S), np.identity(y.shape[0]) - 1 / np.sum(S))
 
+    def get_conjugate(self):
+        return Vecmax()
 
+class Vecmax(SemidiffableProxable, Dualizable):
+    def eval(self, x):
+        return x.max()
+
+    def get_conjugate(self):
+        return IndicatorUnitSimplex()
+
+    def eval_prox(self, x, step_size=1.0):
+        return eval_prox_moreau(x, step_size, self)
+
+    def eval_Jacobian_prox(self, x, step_size=1.0):
+        return eval_Jacobian_prox_moreau(x, step_size, self)
 
 def shrinkage(x, threshold):
     return np.maximum(0., np.abs(x) - threshold) * np.sign(x)
 
-
-class OneNorm(SemidiffableProxable):
+class OneNorm(SemidiffableProxable, Dualizable):
     def eval(self, x):
         return np.sum(np.abs(x))
 
@@ -373,7 +559,10 @@ class OneNorm(SemidiffableProxable):
         v[np.abs(x) >= step_size] = 1
         return np.diag(v)
 
-class TwoNorm(SemidiffableProxable):
+    def get_conjugate(self):
+        return IndicatorBox(-1., 1.)
+
+class TwoNorm(SemidiffableProxable, Dualizable):
     def eval(self, x):
         return np.linalg.norm(x, 2)
 
@@ -389,30 +578,30 @@ class TwoNorm(SemidiffableProxable):
         w = x / t
         return (1 - step_size / t) * np.identity(x.shape[0]) + (step_size / t) * np.outer(w, w)
 
-class Indicator2NormBall(SemidiffableProxable):
-    def __init__(self, radius):
-        self._radius = radius
+    def get_conjugate(self):
+        return IndicatorTwoNormUnitBall()
 
-
+class IndicatorTwoNormUnitBall(SemidiffableProxable):
     def eval(self, x):
-        if np.linalg.norm(x, 2) <= self._radius + 1e-12:
+        if np.linalg.norm(x, 2) <= 1. + 1e-12:
             return 0
         return np.Inf
 
     def eval_prox(self, x, step_size=1.0):
-        if np.linalg.norm(x, 2) <= self._radius:
+        if np.linalg.norm(x, 2) <= 1.:
             return x
         else:
-            return self._radius * (x / np.linalg.norm(x, 2))
+            return x / np.linalg.norm(x, 2)
 
     def eval_Jacobian_prox(self, x, step_size=1.0):
         w = np.linalg.norm(x, 2)
-        if w <= self._radius:
+        if w <= 1.:
             return np.identity(x.shape[0])
         else:
-            return self._radius * (np.identity(x.shape[0]) - np.outer(x, x) / (w ** 2)) / w
+            return (np.identity(x.shape[0]) - np.outer(x, x) / (w ** 2)) / w
 
-
+    def get_conjugate(self):
+        return TwoNorm()
 
 class LinearTransform:
     def __init__(self, A):
@@ -428,6 +617,24 @@ class LinearTransform:
     def apply_transpose(self, x):
         return np.dot(self._A.T, x)
 
+class QuadraticFunction(SecondDiffable):
+    def __init__(self, A, b, C = 0):
+        self._A = A
+        self._norm_A = A.get_norm()
+        self._b = b
+        self._C = C
+
+    def eval(self, x):
+        return 0.5 * np.dot(x, self._A.apply(x)) + np.dot(self._b, x) + self._C
+
+    def eval_gradient(self, x):
+        return self._A.apply(x) + self._b
+
+    def eval_Hessian(self, x):
+        return self._A._A
+
+    def get_Lip_gradient(self):
+        return self._norm_A
 
 class AffineCompositeLoss(SecondDiffable):
     def __init__(self, loss, A, b = None):
