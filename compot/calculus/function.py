@@ -26,7 +26,7 @@ class Diffable(Function):
         pass
 
     def get_Lip_gradient(self):
-        return np.Inf
+        return np.inf
 
 class Dualizable(Function):
     def get_conjugate(self):
@@ -38,7 +38,7 @@ class SecondDiffable(Diffable):
         pass
 
     def get_Lip_Hessian(self):
-        return np.Inf
+        return np.inf
 
 
 ##
@@ -178,7 +178,7 @@ class NormPower(SecondDiffable, Proxable, Dualizable):
         if self._norm == 2. and self._power == 2.:
             return 1.
 
-        return np.Inf
+        return np.inf
 
     def get_conjugate(self):
         power_conj = self._power / (self._power - 1)
@@ -202,7 +202,7 @@ class PowerHingeLoss(Diffable):
         if self._power == 2.:
             return 1.
 
-        return np.Inf
+        return np.inf
 
 
 
@@ -392,15 +392,15 @@ class LogSumExp(SecondDiffable, Dualizable):
 
 class EntropyUnitSimplex(SecondDiffable, Dualizable):
     def eval(self, x):
-        assert np.all(x > 0) and np.sum(x) > 1-1e-13 and np.sum(x) < 1+1e-13
+        assert np.all(x > 0) and np.sum(x) > 1-5e-13 and np.sum(x) < 1+5e-13
         return np.sum(x * np.log(x))
 
     def eval_gradient(self, x):
-        assert np.all(x > 0) and np.sum(x) > 1 - 1e-13 and np.sum(x) < 1 + 1e-13
+        assert np.all(x > 0) and np.sum(x) > 1 - 5e-13 and np.sum(x) < 1 + 5e-13
         return np.log(x) + 1.
 
     def eval_Hessian(self, x):
-        assert np.all(x > 0) and np.sum(x) > 1 - 1e-13 and np.sum(x) < 1 + 1e-13
+        assert np.all(x > 0) and np.sum(x) > 1 - 5e-13 and np.sum(x) < 1 + 5e-13
         return np.diag(1 / x)
 
     def get_conjugate(self):
@@ -408,7 +408,6 @@ class EntropyUnitSimplex(SecondDiffable, Dualizable):
 
 # f*(x*) = sup_x <x, x*> - C
 # f*(x*) = delta_{0}(x*) - C
-# f**(x) = sup_x* 0
 class Constant(SecondDiffable, SemidiffableProxable, Dualizable):
     def __init__(self, C):
         super().__init__()
@@ -445,7 +444,7 @@ class IndicatorZero(SemidiffableProxable, Dualizable):
         self._C = C
 
     def eval(self, x):
-        if np.all(np.logical_and(x > -1e-13, x < 1e-13)):
+        if np.all(np.logical_and(x > -5e-13, x < 5e-13)):
             return self._C
         return np.inf
 
@@ -464,9 +463,9 @@ class IndicatorBox(SemidiffableProxable, Dualizable):
         self._u = u
 
     def eval(self, x):
-        if np.max(x) <= self._u and np.min(x) >= self._l:
+        if np.max(x) <= self._u + 5e-13 and np.min(x) >= self._l - 5e-13:
             return 0
-        return np.Inf
+        return np.inf
 
     def eval_prox(self, x, _):
         return np.maximum(self._l, np.minimum(self._u, x))
@@ -478,6 +477,14 @@ class IndicatorBox(SemidiffableProxable, Dualizable):
 
     def get_conjugate(self):
         return ConjugateIndicatorBox(self._l, self._u)
+
+class IndicatorNonpositive(IndicatorBox):
+    def __init__(self):
+        super().__init__(l = -np.inf, u = 0)
+
+class IndicatorNonnegative(IndicatorBox):
+    def __init__(self):
+        super().__init__(l = 0, u = np.inf)
 
 class ConjugateIndicatorBox(SemidiffableProxable, Dualizable):
     def __init__(self, l = -1., u = 1.):
@@ -585,7 +592,7 @@ class IndicatorTwoNormUnitBall(SemidiffableProxable):
     def eval(self, x):
         if np.linalg.norm(x, 2) <= 1. + 1e-12:
             return 0
-        return np.Inf
+        return np.inf
 
     def eval_prox(self, x, step_size=1.0):
         if np.linalg.norm(x, 2) <= 1.:
@@ -603,19 +610,89 @@ class IndicatorTwoNormUnitBall(SemidiffableProxable):
     def get_conjugate(self):
         return TwoNorm()
 
-class LinearTransform:
-    def __init__(self, A):
-        self._A = A
-        self._norm = np.linalg.norm(self._A, 2)
+class MatrixEigenFunction(Diffable, Proxable, Dualizable):
+    def __init__(self, elem_function):
+        self._elem_function = elem_function
+
+    def eval(self, X):
+        return self._elem_function.eval(np.linalg.eigvals(X))
+
+    def eval_gradient(self, X):
+        assert isinstance(self._elem_function, Diffable)
+
+        lamb, U = np.linalg.eig(X)
+
+        return np.dot(U, np.dot(np.diag(self._elem_function.eval_gradient(lamb)), U.T))
+
+    def eval_prox(self, X, step_size):
+        assert isinstance(self._elem_function, Proxable)
+
+        lamb, U = np.linalg.eig(X)
+
+        return np.dot(U, np.dot(np.diag(self._elem_function.eval_prox(lamb, step_size)), U.T))
+
+    def get_conjugate(self):
+        assert isinstance(self._elem_function, Dualizable)
+
+        return MatrixEigenFunction(self._elem_function.get_conjugate())
+
+class LinearTransform(ABC):
+    @abstractmethod
+    def apply(self, x):
+        pass
+
+    @abstractmethod
+    def apply_transpose(self, x):
+        pass
+
+    @abstractmethod
+    def get_norm(self):
+        pass
+
+class MatrixLinearTransform(LinearTransform):
+    def __init__(self, matrix):
+        self._matrix = matrix
+        self._norm = np.linalg.norm(self._matrix, 2)
 
     def apply(self, x):
-        return np.dot(self. _A, x)
+        return np.dot(self. _matrix, x)
 
     def get_norm(self):
         return self._norm
 
     def apply_transpose(self, x):
-        return np.dot(self._A.T, x)
+        return np.dot(self._matrix.T, x)
+
+
+class LMIOperator(LinearTransform):
+    def __init__(self, A):
+        self.A = A
+
+    def apply(self, x):
+        Y = self.A[0] * x[0]
+        for i in range(1, x.shape[0]):
+            Y = Y + self.A[i] * x[i]
+
+
+        return Y
+
+    def apply_transpose(self, Y):
+        #Y = np.reshape(Y, n, n)
+        x = []
+        for i in range(len(self.A)):
+            x.append(np.trace(np.dot(self.A[i], Y)))
+
+        return np.array(x)
+
+    def get_norm(self):
+        n = len(self.A)
+        r = np.random.randn(n)
+        AAr = self.apply_transpose(self.apply(r))
+        for i in range(1000):
+            r = AAr / np.linalg.norm(AAr)
+            AAr = self.apply_transpose(self.apply(r))
+
+        return np.sqrt(np.linalg.norm(AAr))
 
 class QuadraticFunction(SecondDiffable):
     def __init__(self, A, b, C = 0):
@@ -631,13 +708,13 @@ class QuadraticFunction(SecondDiffable):
         return self._A.apply(x) + self._b
 
     def eval_Hessian(self, x):
-        return self._A._A
+        return self._A._matrix
 
     def get_Lip_gradient(self):
         return self._norm_A
 
 class AffineCompositeLoss(SecondDiffable):
-    def __init__(self, loss, A, b = None):
+    def __init__(self, loss, A: MatrixLinearTransform, b = None):
         self._A = A
         self._norm_A = A.get_norm()
         self._b = b
@@ -660,7 +737,7 @@ class AffineCompositeLoss(SecondDiffable):
         B = self._loss.eval_Hessian(
                 self._A.apply(x) - (0. if self._b is None else self._b)
             )
-        return np.dot(np.dot(self._A._A.T, B), self._A._A)
+        return np.dot(np.dot(self._A._matrix.T, B), self._A._matrix)
 
     def get_Lip_gradient(self):
         return self._norm_A * self._norm_A * self._loss.get_Lip_gradient()

@@ -14,7 +14,7 @@ class Parameters(base.Parameters):
         self.alpha = alpha
 
 class Status(base.Status):
-    def __init__(self, nit=0, res=np.Inf, success=False, cumsum_backtracks = 0):
+    def __init__(self, nit=0, res=np.inf, success=False, cumsum_backtracks = 0):
         super().__init__(nit, res, success)
         self.cumsum_backtracks = cumsum_backtracks
         self.gamma = 0.
@@ -27,7 +27,7 @@ class NesterovUniversalProximalGradientMethod(base.IterativeOptimizer):
 
     def setup(self):
         self.gamma = self.params.gamma_init
-        self.res = np.Inf
+        self.res = np.inf
 
 
     def pre_step(self, _):
@@ -74,7 +74,7 @@ class NesterovUniversalFastProximalGradientMethod(base.IterativeOptimizer):
 
         self.phi = np.zeros(self.problem.x_init.shape)
         self.theta = 0
-        self.res = np.Inf
+        self.res = np.inf
 
 
     def pre_step(self, _):
@@ -153,7 +153,7 @@ class AdaptiveProximalGradientMethod(base.IterativeOptimizer):
         self.s = np.linalg.norm(self.x_plus - self.x)
 
         if k == 0:
-            return np.Inf
+            return np.inf
 
         return self.s / self.gamma_plus
 
@@ -166,7 +166,7 @@ class AdaptiveProximalGradientMethod(base.IterativeOptimizer):
         delta = self.gamma_plus ** 2 * L ** 2 - (2 - self.params.q) * self.gamma_plus * ell + 1 - self.params.q
 
         if delta <= 0.:
-            beta = np.Inf
+            beta = np.inf
         else:
             beta = 1 / np.sqrt(2 * delta)
 
@@ -214,7 +214,7 @@ class AutoConditionedFastGradientMethod(base.IterativeOptimizer):
     def pre_step(self, k):
         self.status.gamma = self.gamma
         if k == 0:
-            return np.Inf
+            return np.inf
 
         return np.linalg.norm(self.x - self.x_plus) / self.gamma_plus
 

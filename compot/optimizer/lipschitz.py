@@ -13,12 +13,12 @@ class Parameters(base.Parameters):
         self.alpha = alpha
 
 class Status(base.Status):
-    def __init__(self, nit=0, res=np.Inf, success=False, cumsum_backtracks = 0):
+    def __init__(self, nit=0, res=np.inf, success=False, cumsum_backtracks = 0):
         super().__init__(nit, res, success)
         self.cumsum_backtracks = cumsum_backtracks
         self.gamma = 0.
         self.tau = 0.
-        self.merit = np.Inf
+        self.merit = np.inf
 
 
 class Panoc(base.IterativeOptimizer):
@@ -34,7 +34,7 @@ class Panoc(base.IterativeOptimizer):
 
         self.gamma = 0.9 / self.L
         self.sigma = 0.9 * self.gamma * (1 - self.gamma * self.L) / 2
-        self.res = np.Inf
+        self.res = np.inf
 
     def pre_step(self, _):
         self.grad = self.problem.diffable.eval_gradient(self.x)
@@ -184,7 +184,7 @@ class FISTA(base.IterativeOptimizer):
         self.status = Status()
 
     def setup(self):
-        self.res = np.Inf
+        self.res = np.inf
         self.y = np.copy(self.x)
         if self.params.gamma_init <= 0:
             self.gamma = 1 / self.problem.diffable.get_Lip_gradient()
@@ -240,7 +240,7 @@ class ProximalGradientDescent(base.IterativeOptimizer):
             self.gamma = self.gamma_min
 
         self.status.gamma = self.gamma
-        self.res = np.Inf
+        self.res = np.inf
 
     def pre_step(self, k):
         return self.res

@@ -14,7 +14,7 @@ class Parameters(base.Parameters):
         self.eta = eta
 
 class Status(base.Status):
-    def __init__(self, nit=0, res=np.Inf, success=False, cumsum_backtracks = 0):
+    def __init__(self, nit=0, res=np.inf, success=False, cumsum_backtracks = 0):
         super().__init__(nit, res, success)
         self.cumsum_backtracks = cumsum_backtracks
         self.gamma = 0.

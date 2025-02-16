@@ -65,7 +65,7 @@ class DualizableSaddlePointProblem(SaddlePointProblem):
         self.f = f
 
     def eval_primal(self, x):
-        return self.g.eval(self.A.appy(x) - self.b) + self.f.eval(x)
+        return self.g.eval(self.A.apply(x) - self.b) + self.f.eval(x)
 
     def eval_dual(self, y):
         return -self.g.get_conjugate().eval(y) - self.f.get_conjugate().eval(-self.A.apply_transpose(y)) - np.dot(y, self.b)
@@ -81,7 +81,7 @@ class Parameters:
         self.epsilon = epsilon
 
 class Status:
-    def __init__(self, nit = 0, res = np.Inf, success = False):
+    def __init__(self, nit = 0, res = np.inf, success = False):
         self.nit = nit
         self.res = res
         self.success = success
@@ -211,7 +211,7 @@ class PrimalDualIterativeOptimizer(Optimizer):
         while True:
             self.update_status(k)
 
-            if not self.callback is None and self.callback(self.x, self.s, self.y, self.status):
+            if not self.callback is None and self.callback((self.x, self.s, self.y), self.status):
                 return self.status
 
             if self.status.res <= self.params.tol:

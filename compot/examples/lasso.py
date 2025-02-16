@@ -17,7 +17,7 @@ lamb = 0.015
 #min_x f(x) + g(x)
 f = fun.AffineCompositeLoss(
             fun.NormPower(2, 2),
-            fun.LinearTransform(A),
+            fun.MatrixLinearTransform(A),
             b
         )
 

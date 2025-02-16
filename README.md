@@ -27,7 +27,7 @@ problems ![equation](https://latex.codecogs.com/png.image?\dpi{110}\inline\min_x
 
       f = fun.AffineCompositeLoss(
               fun.NormPower(2, 2),
-              fun.LinearTransform(A),
+              fun.MatrixLinearTransform(A),
               b
       )
         
