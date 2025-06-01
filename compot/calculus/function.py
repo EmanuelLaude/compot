@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import numpy as np
+import scipy
 
 
 ##
@@ -662,6 +663,20 @@ class MatrixLinearTransform(LinearTransform):
 
     def apply_transpose(self, x):
         return np.dot(self._matrix.T, x)
+
+
+class SparseMatrixLinearTransform(LinearTransform):
+    def __init__(self, matrix):
+        self._matrix = matrix
+
+    def apply(self, x):
+        return self. _matrix @ x
+
+    def get_norm(self):
+        return scipy.sparse.linalg.norm(self._matrix, ord=2)
+
+    def apply_transpose(self, x):
+        return self._matrix.T @ x
 
 
 class LMIOperator(LinearTransform):

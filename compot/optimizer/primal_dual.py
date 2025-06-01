@@ -201,7 +201,7 @@ class ProximalAugmentedLagrangianMethod(base.PrimalDualIterativeOptimizer):
         self.subproblem = base.DiffableOptimizationProblem(self.s, self.augmented_lagrangian)
 
         def callback_oracle(s, status):
-            print("    ", status.nit, status.gamma, np.linalg.norm(self.subproblem.diffable.eval_gradient(s)))
+            print("    ", status.nit, np.linalg.norm(self.subproblem.diffable.eval_gradient(s)))
 
             return self.stopping_criterion(s, self.augmented_lagrangian.eval_gradient(s))
 

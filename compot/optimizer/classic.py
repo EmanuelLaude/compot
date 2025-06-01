@@ -4,7 +4,7 @@ import compot.optimizer.base as base
 
 class Parameters(base.Parameters):
     def __init__(self, maxit = 500, tol = 1e-5, epsilon = 1e-12,
-                 gamma_init=1., mem = 200, Wolfe = True, sigma = 1e-4, eta = 0.9):
+                 gamma_init=1., mem = 200, Wolfe = True, sigma = 1e-4, eta = 0.9, maxit_ls=100):
         super().__init__(maxit, tol, epsilon)
 
         self.gamma_init = gamma_init
@@ -12,6 +12,7 @@ class Parameters(base.Parameters):
         self.Wolfe = Wolfe
         self.sigma = sigma
         self.eta = eta
+        self.maxit_ls = maxit_ls
 
 class Status(base.Status):
     def __init__(self, nit=0, res=np.inf, success=False, cumsum_backtracks = 0):
@@ -53,7 +54,7 @@ class DescentMethodBaseClass(base.IterativeOptimizer):
         gamma = self.params.gamma_init
         gamma_low = 0
         gamma_high = np.inf
-        while True:
+        for k in range(self.params.maxit_ls):
             self.status.cumsum_backtracks += 1
 
             fx_plus = self.problem.diffable.eval(self.x + gamma * d)
@@ -132,11 +133,10 @@ class LBFGS(DescentMethodBaseClass):
             q = q - alpha[j] * self.Y[j]
 
         if k > len(self.S):
-            H = (np.dot(self.S[-1], self.Y[-1]) / np.dot(self.Y[-1], self.Y[-1])) * np.identity(self.x.shape[0])
+            d = (np.dot(self.S[-1], self.Y[-1]) / np.dot(self.Y[-1], self.Y[-1])) * q
         else:
-            H = np.identity(self.x.shape[0])
+            d = q
 
-        d = np.dot(H, q)
         for j in range(len(self.S)):
             beta = rho[j] * np.dot(self.Y[j], d)
             d = d + (alpha[j] - beta) * self.S[j]

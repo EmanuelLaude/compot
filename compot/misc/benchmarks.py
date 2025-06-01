@@ -32,7 +32,7 @@ class Benchmark(ABC):
         pass
 
     @abstractmethod
-    def eval_criteria(self, variable, status):
+    def eval_criteria(self, problem, variable, status):
         pass
 
     @abstractmethod
@@ -96,7 +96,7 @@ class Benchmark(ABC):
                 problem = self.setup_problem()
 
                 def callback(variable, status):
-                    criteria, stop_algorithm = self.eval_criteria(variable, status)
+                    criteria, stop_algorithm = self.eval_criteria(problem, variable, status)
                     for key in self.get_criterion_keys():
                         self.criteria[key][optimizer_config["name"]][run]["xvals"].append(criteria[key]["x"])
                         self.criteria[key][optimizer_config["name"]][run]["yvals"].append(criteria[key]["y"])
