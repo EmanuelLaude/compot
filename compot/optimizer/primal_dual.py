@@ -59,7 +59,7 @@ class ExpIncrStepSizeSchedule(StepSizeSchedule):
 class Parameters(base.Parameters):
     def __init__(self, maxit=500, tol=1e-5, epsilon=1e-12, sigma_init = 1.0, tau_init = 1.0, rho = 0.5, class_oracle = cls.LBFGS,
                  params_oracle = cls.Parameters(), step_size_schedule = ConstantStepSizeSchedule, beta = 0.5, zeta = 0.9, sigma_max = np.inf, tau_max = np.inf,
-                step_inter = 10):
+                step_inter = 10, theta=1.):
         super().__init__(maxit, tol, epsilon)
 
         self.sigma_init = sigma_init
@@ -73,6 +73,7 @@ class Parameters(base.Parameters):
         self.step_inter = step_inter
         self.beta = beta
         self.zeta = zeta
+        self.theta = theta
 
 class Penalty(fun.SecondDiffable):
     def __init__(self, proxable, sigma):
