@@ -96,18 +96,19 @@ class Benchmark(ABC):
                 problem = self.setup_problem()
 
                 def callback(variable, status):
-                    criteria, stop_algorithm = self.eval_criteria(problem, variable, status)
-                    for key in self.get_criterion_keys():
-                        self.criteria[key][optimizer_config["name"]][run]["xvals"].append(criteria[key]["x"])
-                        self.criteria[key][optimizer_config["name"]][run]["yvals"].append(criteria[key]["y"])
+                    criteria = self.eval_criteria(problem, variable, status)
+                    if criteria is not None:
+                        for key in self.get_criterion_keys():
+                            self.criteria[key][optimizer_config["name"]][run]["xvals"].append(criteria[key]["x"])
+                            self.criteria[key][optimizer_config["name"]][run]["yvals"].append(criteria[key]["y"])
 
-                    msg = "nit: " + str(status.nit)
-                    for key in self.get_criterion_keys():
-                        msg = msg + "    " + key + ": " + str(criteria[key]["y"])
+                        msg = "nit: " + str(status.nit)
+                        for key in self.get_criterion_keys():
+                            msg = msg + "    " + key + ": " + str(criteria[key]["y"])
 
-                    print(msg)
+                        print(msg)
 
-                    return stop_algorithm
+                    return False
 
                 optimizer = self.setup_optimizer(optimizer_config,
                                                       problem,
@@ -197,8 +198,15 @@ class Benchmark(ABC):
                 yvals[optimizer_config["name"]][run] = np.array(self.criteria[key][optimizer_config["name"]][run]["yvals"])
 
 
+        xlabel = None
+        if self.get_axis_labels() is not None:
+            xlabel = self.get_axis_labels()[key]["x"]
 
-        self.plot(xvals, yvals, self.refvals[key], self.get_axis_labels()[key]["x"], self.get_axis_labels()[key]["y"])
+        ylabel = None
+        if self.get_axis_labels() is not None:
+            ylabel = self.get_axis_labels()[key]["y"]
+
+        self.plot(xvals, yvals, self.refvals[key], xlabel, ylabel)
 
     def plot(self, xvals, yvals, refval, xlabel, ylabel):
         for optimizer_config in self.optimizer_configs:
@@ -209,6 +217,7 @@ class Benchmark(ABC):
                              markevery=optimizer_config["markevery"],
                              color=optimizer_config["color"],
                              linestyle=optimizer_config["linestyle"],
+                             linewidth=optimizer_config["linewidth"]
                              )
             else:
                 self.plot_mean_stdev(xvals[optimizer_config["name"]], yvals[optimizer_config["name"]],
@@ -218,7 +227,8 @@ class Benchmark(ABC):
                                      refval = refval,
                                      plotstdev= True,
                                      markevery=optimizer_config["markevery"],
-                                     plotevery = optimizer_config["plotevery"])
+                                     plotevery = optimizer_config["plotevery"],
+                                     linewidth = optimizer_config["linewidth"])
 
             plt.xlabel(xlabel)
             plt.ylabel(ylabel)

@@ -42,7 +42,7 @@ class DescentMethodBaseClass(base.IterativeOptimizer):
         pass
 
     def step(self, k):
-        sigma = self.params.sigma
+        sigma = self.params.tau
         eta = self.params.eta
 
 

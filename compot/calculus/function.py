@@ -464,7 +464,7 @@ class IndicatorBox(SemidiffableProxable, Dualizable):
         self._u = u
 
     def eval(self, x):
-        if np.max(x) <= self._u + 5e-13 and np.min(x) >= self._l - 5e-13:
+        if np.all(x <= self._u + 5e-13) and np.all(x >= self._l - 5e-13):
             return 0
         return np.inf
 
@@ -494,8 +494,8 @@ class ConjugateIndicatorBox(SemidiffableProxable, Dualizable):
 
     def eval(self, x):
         y = np.zeros(x.shape)
-        y[x < 0] = self._l
-        y[x > 0] = self._u
+        y[x < 0] = (self._l * np.ones(x.shape[0]))[x < 0]
+        y[x > 0] = (self._u * np.ones(x.shape[0]))[x > 0]
         return np.sum(y)
 
     def eval_prox(self, x, step_size=1.0):

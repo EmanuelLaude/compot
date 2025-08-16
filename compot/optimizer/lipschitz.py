@@ -168,14 +168,17 @@ class LBFGSPanoc(Panoc):
         return -d
 
     def post_step(self, x):
+        grad = self.problem.diffable.eval_gradient(x)
+        R = (x - self.problem.proxable.eval_prox(x - self.gamma * grad, self.gamma)) / self.gamma
+        y = R - self.R
+        s = x - self.x
+
         if len(self.S) >= self.params.mem:
             self.S.pop(0)
             self.Y.pop(0)
 
-        self.S.append(x - self.x)
-        grad = self.problem.diffable.eval_gradient(x)
-        R = (x - self.problem.proxable.eval_prox(x - self.gamma * grad, self.gamma)) / self.gamma
-        self.Y.append(R - self.R)
+        self.S.append(s)
+        self.Y.append(y)
 
 
 class FISTA(base.IterativeOptimizer):
